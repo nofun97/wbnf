@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/arr-ai/wbnf/parser"
 	parse "github.com/arr-ai/wbnf/parser"
 )
 
@@ -48,7 +49,7 @@ func ruleOrAlt(rule Rule, alt Rule) Rule {
 	if rule == "" {
 		return alt
 	}
-	return rule + "\\" + alt
+	return rule
 }
 
 type putter func(output interface{}, extra interface{}, children ...interface{}) bool
@@ -116,7 +117,19 @@ func (g Grammar) Compile() Parsers {
 		}
 	}
 
-	return Parsers{parsers: c.parsers, grammar: g}
+	return Parsers{
+		parsers:    c.parsers,
+		grammar:    g,
+		singletons: g.singletons(),
+	}
+}
+
+func Compile(grammar string) (Parsers, error) {
+	v, err := Core().Parse(grammarR, parser.NewScanner(grammar))
+	if err != nil {
+		return Parsers{}, err
+	}
+	return NewFromNode(v.(parser.Node)).Compile(), nil
 }
 
 //-----------------------------------------------------------------------------
