@@ -118,11 +118,18 @@ func test(c *cli.Context) error {
 	var input string
 	switch source {
 	case "", "-":
-		buf, err := ioutil.ReadAll(os.Stdin)
-		if err != nil {
-			return err
+		stream := parser.NewStreamScanner(os.Stdin)
+		var scanner *parser.Scanner
+		for {
+			scanner = stream.Scan()
+			if scanner == nil {
+				scanner = stream.Scan()
+				continue
+			}
+			if err := parseInput("", scanner.String(), scanner); err != nil {
+				return err
+			}
 		}
-		input = string(buf)
 	default:
 		buf, err := ioutil.ReadFile(source)
 		if err != nil {
@@ -130,6 +137,11 @@ func test(c *cli.Context) error {
 		}
 		input = string(buf)
 	}
+
+	return parseInput(source, input, parser.NewScanner(input))
+}
+
+func parseInput(source, input string, scanner *parser.Scanner) error {
 	if inGrammarFile == "" {
 		return testWbnfFile(source, input)
 	}
@@ -141,7 +153,7 @@ func test(c *cli.Context) error {
 	if !g.HasRule(parser.Rule(startingRule)) {
 		return fmt.Errorf("starting rule '%s' not in test grammar", startingRule)
 	}
-	tree, err := g.Parse(parser.Rule(startingRule), parser.NewScanner(input))
+	tree, err := g.Parse(parser.Rule(startingRule), scanner)
 	if err != nil {
 		if uci, ok := err.(parser.UnconsumedInputError); ok {
 			logrus.Warningln("Partial result:")
@@ -159,6 +171,5 @@ func test(c *cli.Context) error {
 	if err, ok := err.(parser.UnconsumedInputError); ok {
 		return err
 	}
-
 	return nil
 }
